@@ -1,4 +1,3 @@
-// server.js
 require('dotenv').config();
 
 const express = require('express');
@@ -23,6 +22,7 @@ app.use(cors({
         'http://127.0.0.1:5501',
         'http://localhost:5501',
         'http://localhost:3000',
+        'http://5.129.243.61:3001',
         process.env.SITE_URL
     ].filter(Boolean)
 }));
@@ -37,7 +37,7 @@ CONFIG
 */
 
 const PORT = process.env.PORT || 3000;
-const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
+const SITE_URL = process.env.SITE_URL || `http://5.129.243.61:${PORT}`;
 
 const YANDEX_FOLDER_ID = process.env.YANDEX_FOLDER_ID;
 const YANDEX_API_KEY = process.env.YANDEX_API_KEY;
@@ -118,7 +118,7 @@ async function generateWithYandexART(prompt) {
     return await waitForImage(response.data.id);
 }
 
-async function saveImage(base64, requestId) {
+async function saveImageToCloudinary(base64, requestId) {
     const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
     
     const result = await cloudinary.uploader.upload(
@@ -131,11 +131,16 @@ async function saveImage(base64, requestId) {
 
     return result.secure_url;
 }
+
 // Функция для генерации и сохранения изображения
 async function generateAndSaveImage(prompt, requestId, token) {
     try {
+        console.log(`🎨 Начинаем генерацию изображения для requestId: ${requestId}`);
+        
         const base64 = await generateWithYandexART(prompt);
-        const imageUrl = await saveImage(base64, requestId);
+        console.log(`✅ Изображение сгенерировано, сохраняем в Cloudinary...`);
+        
+        const imageUrl = await saveImageToCloudinary(base64, requestId);
 
         await query(
             `UPDATE bouquets
@@ -147,7 +152,7 @@ async function generateAndSaveImage(prompt, requestId, token) {
 
         console.log(`✅ Изображение сохранено для заказа ${token}: ${imageUrl}`);
     } catch (err) {
-        console.error('❌ Ошибка сохранения изображения:', err);
+        console.error('❌ Ошибка генерации/сохранения изображения:', err);
         await query(
             `UPDATE bouquets
              SET generation_status = 'failed'
@@ -156,35 +161,39 @@ async function generateAndSaveImage(prompt, requestId, token) {
         );
     }
 }
+
 /*
 ========================
-ГЕНЕРАЦИЯ ИНДИВИДУАЛЬНОЙ ССЫЛКИ
+СОЗДАНИЕ СЕССИИ (ДЛЯ САЙТА)
 ========================
 */
 
 app.post('/api/create-session', async (req, res) => {
     try {
-        const { telegramUserId, telegramUsername } = req.body;
+        const { recipientType } = req.body; // 'self' или 'other'
         
         const shareToken = uuidv4();
         
         const result = await query(
             `INSERT INTO sessions 
-             (share_token, telegram_user_id, telegram_username, status)
-             VALUES ($1, $2, $3, 'pending')
+             (share_token, recipient_type, status, created_at)
+             VALUES ($1, $2, 'pending', NOW())
              RETURNING id, share_token`,
-            [shareToken, telegramUserId || null, telegramUsername || null]
+            [shareToken, recipientType || 'self']
         );
         
         const sessionId = result.rows[0].id;
         const token = result.rows[0].share_token;
-        const shareUrl = `${SITE_URL}/quiz/${token}`;
+        
+        // Создаем ссылку для Telegram бота
+        const botLink = `https://t.me/your_bot_username?start=${token}`;
         
         res.json({
             success: true,
             sessionId,
             token,
-            shareUrl
+            botLink,
+            message: 'Отправьте эту ссылку получателю или пройдите тест сами'
         });
         
     } catch (err) {
@@ -195,116 +204,320 @@ app.post('/api/create-session', async (req, res) => {
 
 /*
 ========================
-СОХРАНЕНИЕ ОТВЕТОВ ТЕСТА
+СОЗДАНИЕ СЕССИИ С СУЩЕСТВУЮЩИМ ТОКЕНОМ (ДЛЯ БОТА)
 ========================
 */
 
-app.post('/api/save-answers', async (req, res) => {
+app.post('/api/create-session-with-token', async (req, res) => {
     try {
-        const { token, answers } = req.body;
-
-        await query(
-            `UPDATE sessions SET
-             occasion = $1,
-             recipient_person_type = $2,
-             mood = $3,
-             color_preferences = $4,
-             flower_preferences = $5,
-             budget_range = $6,
-             note_text = $7,
-             status = 'completed',
-             completed_at = NOW()
-             WHERE share_token = $8`,
-            [
-                answers.occasion,
-                answers.forWhom,
-                answers.mood || 'happy',
-                answers.colors,
-                answers.favoriteFlowersText,
-                answers.budget || 'medium',
-                answers.noteText,
-                token
-            ]
+        const { telegramUserId, telegramUsername, token } = req.body;
+        
+        // Проверяем, существует ли уже сессия с таким токеном
+        const existingSession = await query(
+            'SELECT id FROM sessions WHERE share_token = $1',
+            [token]
         );
 
-        res.json({ success: true });
+        if (existingSession.rows.length > 0) {
+            // Сессия уже существует, обновляем telegram данные
+            await query(
+                `UPDATE sessions SET 
+                 telegram_user_id = $1,
+                 telegram_username = $2
+                 WHERE share_token = $3`,
+                [telegramUserId || null, telegramUsername || null, token]
+            );
+            
+            return res.json({
+                success: true,
+                token: token,
+                sessionId: existingSession.rows[0].id,
+                shareUrl: `${SITE_URL}/quiz/${token}`
+            });
+        }
+
+        // Создаем новую сессию с указанным токеном
+        const result = await query(
+            `INSERT INTO sessions 
+             (share_token, telegram_user_id, telegram_username, status, created_at)
+             VALUES ($1, $2, $3, 'pending', NOW())
+             RETURNING id, share_token`,
+            [token, telegramUserId || null, telegramUsername || null]
+        );
+        
+        const sessionId = result.rows[0].id;
+        const shareUrl = `${SITE_URL}/quiz/${token}`;
+        
+        res.json({
+            success: true,
+            sessionId,
+            token,
+            shareUrl
+        });
+        
     } catch (err) {
-        console.error('❌ Ошибка сохранения ответов:', err);
-        res.status(500).json({ error: 'Ошибка сохранения' });
+        console.error('❌ Ошибка создания сессии с токеном:', err);
+        res.status(500).json({ error: 'Не удалось создать сессию' });
     }
 });
 
 /*
 ========================
-ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЯ
+СОХРАНЕНИЕ РЕЗУЛЬТАТОВ ТЕСТА ИЗ TELEGRAM БОТА
 ========================
 */
 
-app.post('/api/generate', async (req, res) => {
+app.post('/api/save-test-results', async (req, res) => {
     try {
-        const { prompt, requestId, token } = req.body;
-        const id = requestId || uuidv4();
+        const { 
+            telegram_id, 
+            telegram_name,
+            profile, 
+            scores, 
+            ai_prompt,
+            session_token,
+            answers 
+        } = req.body;
 
-        // Получаем session_id по токену
-        const sessionResult = await query(
-            `SELECT id FROM sessions WHERE share_token = $1`,
-            [token]
+        console.log('📥 Получены результаты теста:', { 
+            session_token, 
+            telegram_id,
+            profile 
+        });
+
+        // Маппинг профиля из бота в поля таблицы sessions
+        const occasion = 'telegram_test';
+        const recipientPersonType = profile?.form || 'self';
+        const mood = profile?.mood || 'M1';
+        const colorPreferences = profile?.color || 'P';
+        
+        // Преобразуем mood код в читаемое значение
+        const moodMap = {
+            'M1': 'romantic',
+            'M2': 'happy',
+            'M3': 'dramatic',
+            'M4': 'calm'
+        };
+
+        let sessionId;
+
+        // Обновляем сессию с результатами теста
+        const updateResult = await query(
+            `UPDATE sessions SET
+             occasion = $1,
+             recipient_person_type = $2,
+             mood = $3,
+             color_preferences = $4,
+             telegram_user_id = $5,
+             telegram_username = $6,
+             status = 'completed',
+             completed_at = NOW()
+             WHERE share_token = $7
+             RETURNING id`,
+            [
+                occasion,
+                recipientPersonType,
+                moodMap[mood] || 'happy',
+                colorPreferences,
+                telegram_id ? String(telegram_id) : null,
+                telegram_name || null,
+                session_token
+            ]
         );
 
-        if (!sessionResult.rows.length) {
-            return res.status(404).json({ error: 'Сессия не найдена' });
+        if (updateResult.rows.length === 0) {
+            console.log('⚠️ Сессия не найдена, создаем новую');
+            // Если сессия не найдена, создаем новую
+            const newSession = await query(
+                `INSERT INTO sessions 
+                 (share_token, telegram_user_id, telegram_username, status, completed_at, 
+                  occasion, recipient_person_type, mood, color_preferences)
+                 VALUES ($1, $2, $3, 'completed', NOW(), $4, $5, $6, $7)
+                 RETURNING id`,
+                [
+                    session_token, 
+                    telegram_id ? String(telegram_id) : null, 
+                    telegram_name || null,
+                    occasion,
+                    recipientPersonType,
+                    moodMap[mood] || 'happy',
+                    colorPreferences
+                ]
+            );
+            
+            sessionId = newSession.rows[0].id;
+            console.log('✅ Создана новая сессия с ID:', sessionId);
+        } else {
+            sessionId = updateResult.rows[0].id;
+            console.log('✅ Обновлена существующая сессия с ID:', sessionId);
         }
 
-        const sessionId = sessionResult.rows[0].id;
-
-        // Сохраняем информацию о генерации
+        // Сохраняем промпт для генерации
+        const requestId = 'gen_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
         await query(
             `INSERT INTO bouquets
-             (session_id, prompt_text, generation_request_id, generation_status)
-             VALUES($1, $2, $3, 'pending')
-             RETURNING id`,
-            [sessionId, prompt, id]
+             (session_id, prompt_text, generation_status, generation_request_id, created_at)
+             VALUES($1, $2, 'pending', $3, NOW())`,
+            [sessionId, ai_prompt, requestId]
         );
 
-        // Запускаем генерацию (не ждем)
-        generateAndSaveImage(prompt, id, token).catch(console.error);
+        console.log('📝 Сохранен промпт для генерации, requestId:', requestId);
 
-        res.json({
+        // Запускаем генерацию в фоне
+        generateAndSaveImage(ai_prompt, requestId, session_token).catch(error => {
+            console.error('❌ Ошибка в фоновой генерации:', error);
+        });
+
+        res.json({ 
             success: true,
-            requestId: id,
-            message: 'Генерация запущена'
+            message: 'Результаты сохранены, генерация запущена',
+            requestId: requestId
         });
 
     } catch (err) {
-        console.error('❌ Ошибка генерации:', err);
-        res.status(500).json({ error: 'Ошибка генерации' });
+        console.error('❌ Ошибка сохранения результатов:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 
-async function generateAndSaveImage(prompt, requestId, token) {
+/*
+========================
+ПРОВЕРКА СТАТУСА ТЕСТА И ГЕНЕРАЦИИ ПО ТОКЕНУ (ДЛЯ САЙТА)
+========================
+*/
+
+app.get('/api/quiz-status/:token', async (req, res) => {
     try {
-        const base64 = await generateWithYandexART(prompt);
-        const imageUrl = await saveImage(base64, requestId);
-
-        await query(
-            `UPDATE bouquets
-             SET image_url = $1,
-                 generation_status = 'completed'
-             WHERE generation_request_id = $2`,
-            [imageUrl, requestId]
+        const { token } = req.params;
+        
+        console.log(`🔍 Проверка статуса для токена: ${token}`);
+        
+        const result = await query(
+            `SELECT 
+                s.id as session_id,
+                s.status as session_status,
+                s.completed_at,
+                s.telegram_user_id,
+                s.occasion,
+                s.recipient_person_type,
+                s.mood,
+                s.color_preferences,
+                b.id as bouquet_id,
+                b.image_url,
+                b.generation_status,
+                b.generation_request_id,
+                b.prompt_text,
+                b.created_at as generation_started_at
+             FROM sessions s
+             LEFT JOIN bouquets b ON s.id = b.session_id
+             WHERE s.share_token = $1
+             ORDER BY b.created_at DESC
+             LIMIT 1`,
+            [token]
         );
 
-        console.log(`✅ Изображение сохранено: ${imageUrl}`);
+        if (result.rows.length === 0) {
+            return res.json({ 
+                status: 'not_found',
+                message: 'Сессия не найдена'
+            });
+        }
+
+        const session = result.rows[0];
+        
+        let responseStatus = {
+            token: token,
+            session_id: session.session_id,
+            test_completed: !!session.completed_at,
+            session_status: session.session_status,
+            has_generation: !!session.bouquet_id,
+            timestamp: new Date().toISOString()
+        };
+
+        // Определяем статус для фронтенда
+        if (!session.completed_at) {
+            responseStatus.status = 'test_pending';
+            responseStatus.message = 'Ожидание прохождения теста в Telegram';
+        } 
+        else if (!session.bouquet_id) {
+            responseStatus.status = 'generation_pending';
+            responseStatus.message = 'Тест пройден, подготовка генерации...';
+        }
+        else if (session.generation_status === 'pending') {
+            responseStatus.status = 'generating';
+            responseStatus.message = 'Генерация вашего уникального букета...';
+            responseStatus.generation_request_id = session.generation_request_id;
+            responseStatus.generation_started = session.generation_started_at;
+        }
+        else if (session.generation_status === 'completed' && session.image_url) {
+            responseStatus.status = 'ready';
+            responseStatus.message = 'Ваш букет готов!';
+            responseStatus.image_url = session.image_url;
+            responseStatus.bouquet_id = session.bouquet_id;
+            
+            // Добавляем профиль для отображения
+            const moodMap = {
+                'romantic': 'Романтичное',
+                'happy': 'Радостное',
+                'dramatic': 'Драматичное',
+                'calm': 'Спокойное'
+            };
+            
+            const colorMap = {
+                'P': 'Нежная пастель',
+                'B': 'Яркая энергия',
+                'D': 'Глубокая драма',
+                'N': 'Природная гармония'
+            };
+            
+            responseStatus.profile = {
+                mood: moodMap[session.mood] || session.mood,
+                color: colorMap[session.color_preferences] || session.color_preferences,
+                person_type: session.recipient_person_type === 'self' ? 'Для себя' : 'Для другого'
+            };
+        }
+        else if (session.generation_status === 'failed') {
+            responseStatus.status = 'failed';
+            responseStatus.message = 'Не удалось сгенерировать букет. Пожалуйста, попробуйте позже.';
+        }
+
+        console.log(`📊 Статус для токена ${token}:`, responseStatus.status);
+
+        res.json(responseStatus);
+
     } catch (err) {
-        console.error('❌ Ошибка сохранения изображения:', err);
-        await query(
-            `UPDATE bouquets
-             SET generation_status = 'failed'
-             WHERE generation_request_id = $1`,
-            [requestId]
-        );
+        console.error('❌ Ошибка проверки статуса:', err);
+        res.status(500).json({ 
+            status: 'error',
+            error: err.message 
+        });
     }
-}
+});
+
+/*
+========================
+ПРОВЕРКА СУЩЕСТВОВАНИЯ СЕССИИ
+========================
+*/
+
+app.get('/api/check-session/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        
+        const result = await query(
+            'SELECT id FROM sessions WHERE share_token = $1',
+            [token]
+        );
+        
+        res.json({
+            exists: result.rows.length > 0
+        });
+    } catch (err) {
+        console.error('❌ Ошибка проверки сессии:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 /*
 ========================
@@ -345,79 +558,19 @@ app.get('/api/session-results/:token', async (req, res) => {
                 }))
         };
 
-        // Записываем клик по ссылке
-        await query(
-            `INSERT INTO link_clicks(session_id, ip_address, user_agent, referer)
-             VALUES($1, $2, $3, $4)`,
-            [session.id, req.ip, req.headers['user-agent'], req.get('Referer')]
-        );
+        // Записываем просмотр
+        if (session.id) {
+            await query(
+                `INSERT INTO link_clicks(session_id, ip_address, user_agent, referer)
+                 VALUES($1, $2, $3, $4)`,
+                [session.id, req.ip, req.headers['user-agent'], req.get('Referer')]
+            );
+        }
 
         res.json(session);
     } catch (err) {
         console.error('❌ Ошибка получения результатов:', err);
         res.status(500).json({ error: 'Ошибка загрузки' });
-    }
-});
-
-/*
-========================
-СТАТУС ГЕНЕРАЦИИ
-========================
-*/
-
-app.get('/api/generation-status/:requestId', async (req, res) => {
-    try {
-        const { requestId } = req.params;
-
-        const result = await query(
-            `SELECT generation_status as status, image_url
-             FROM bouquets
-             WHERE generation_request_id = $1`,
-            [requestId]
-        );
-
-        if (!result.rows.length) {
-            return res.json({ status: 'pending' });
-        }
-
-        res.json(result.rows[0]);
-    } catch (err) {
-        console.error('❌ Ошибка статуса:', err);
-        res.status(500).json({ error: 'Ошибка проверки статуса' });
-    }
-});
-
-/*
-========================
-ВЫБОР БУКЕТА
-========================
-*/
-
-app.post('/api/select-bouquet', async (req, res) => {
-    try {
-        const { bouquetId, token } = req.body;
-
-        // Сбрасываем выбор для всех букетов сессии и выбираем новый
-        await transaction(async (client) => {
-            await client.query(
-                `UPDATE bouquets 
-                 SET is_selected = false
-                 WHERE session_id = (SELECT id FROM sessions WHERE share_token = $1)`,
-                [token]
-            );
-
-            await client.query(
-                `UPDATE bouquets 
-                 SET is_selected = true, selected_at = NOW()
-                 WHERE id = $1`,
-                [bouquetId]
-            );
-        });
-
-        res.json({ success: true });
-    } catch (err) {
-        console.error('❌ Ошибка выбора букета:', err);
-        res.status(500).json({ error: 'Ошибка выбора букета' });
     }
 });
 
@@ -461,13 +614,13 @@ app.post('/api/create-order', async (req, res) => {
 
             const session = sessionInfo.rows[0];
 
-            // Создаем заказ
+            // Создаем заказ (номер генерируется триггером)
             const orderResult = await client.query(
                 `INSERT INTO orders (
                     session_id, bouquet_id, customer_name, customer_phone,
                     customer_email, delivery_address, delivery_date,
-                    delivery_comment, order_status, source_url
-                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9)
+                    delivery_comment, order_status
+                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
                  RETURNING id, order_number`,
                 [
                     session.session_id,
@@ -477,8 +630,7 @@ app.post('/api/create-order', async (req, res) => {
                     customerEmail || null,
                     deliveryAddress || null,
                     deliveryDate || null,
-                    deliveryComment || null,
-                    req.get('Referer') || SITE_URL
+                    deliveryComment || null
                 ]
             );
 
@@ -492,16 +644,6 @@ app.post('/api/create-order', async (req, res) => {
 
             return orderResult.rows[0];
         });
-
-        // Отправляем уведомление в Telegram
-        if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_ADMIN_CHAT_ID) {
-            await sendTelegramNotification({
-                orderNumber: result.order_number,
-                customerName,
-                customerPhone,
-                customerEmail
-            });
-        }
 
         res.json({
             success: true,
@@ -575,38 +717,6 @@ app.get('/api/admin/stats', async (req, res) => {
 
 /*
 ========================
-УВЕДОМЛЕНИЯ В TELEGRAM
-========================
-*/
-
-async function sendTelegramNotification(orderData) {
-    try {
-        const message = `
-🆕 **Новый заказ!** #${orderData.orderNumber}
-
-👤 **Клиент:** ${orderData.customerName}
-📞 **Телефон:** ${orderData.customerPhone}
-${orderData.customerEmail ? `📧 **Email:** ${orderData.customerEmail}` : ''}
-
-🔗 [Посмотреть в админке](${SITE_URL}/admin/order/${orderData.orderNumber})
-        `;
-
-        await axios.post(
-            `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-            {
-                chat_id: process.env.TELEGRAM_ADMIN_CHAT_ID,
-                text: message,
-                parse_mode: 'Markdown',
-                disable_web_page_preview: false
-            }
-        );
-    } catch (err) {
-        console.error('❌ Ошибка отправки уведомления:', err.message);
-    }
-}
-
-/*
-========================
 ТЕСТОВЫЕ ЭНДПОИНТЫ
 ========================
 */
@@ -639,185 +749,7 @@ app.get('/api/test-db', async (req, res) => {
 
 /*
 ========================
-ПРОВЕРКА СТАТУСА ЗАКАЗА ДЛЯ ОЖИДАНИЯ РЕЗУЛЬТАТОВ ИЗ TELEGRAM
-========================
-*/
-
-app.get('/api/check-order/:orderId', async (req, res) => {
-    try {
-        const { orderId } = req.params;
-        
-        console.log(`🔍 Проверка статуса заказа: ${orderId}`);
-        
-        // Ищем сессию по orderId (share_token)
-        const result = await query(
-            `SELECT s.*, 
-                    b.id as bouquet_id, 
-                    b.image_url, 
-                    b.generation_status,
-                    b.generation_request_id
-             FROM sessions s
-             LEFT JOIN bouquets b ON s.id = b.session_id
-             WHERE s.share_token = $1
-             ORDER BY b.created_at DESC
-             LIMIT 1`,
-            [orderId]
-        );
-
-        if (result.rows.length === 0) {
-            console.log(`⚠️ Сессия не найдена для orderId: ${orderId}`);
-            return res.json({ 
-                status: 'pending',
-                exists: false 
-            });
-        }
-
-        const session = result.rows[0];
-        console.log(`📊 Статус сессии:`, {
-            status: session.status,
-            generation_status: session.generation_status,
-            has_image: !!session.image_url
-        });
-        
-        // Проверяем статус
-        if (session.image_url) {
-            return res.json({
-                status: 'completed',
-                imageUrl: session.image_url,
-                sessionData: session
-            });
-        } else if (session.generation_status === 'completed' && session.image_url) {
-            return res.json({
-                status: 'completed',
-                imageUrl: session.image_url,
-                sessionData: session
-            });
-        } else if (session.generation_status === 'pending') {
-            return res.json({
-                status: 'generating',
-                message: 'Генерация в процессе'
-            });
-        } else if (session.status === 'completed') {
-            return res.json({
-                status: 'test_completed',
-                message: 'Тест пройден, ожидание генерации'
-            });
-        } else {
-            return res.json({
-                status: 'pending',
-                message: 'Ожидание прохождения теста'
-            });
-        }
-
-    } catch (err) {
-        console.error('❌ Ошибка проверки заказа:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-/*
-========================
-ПОЛУЧЕНИЕ РЕЗУЛЬТАТОВ ТЕСТА ИЗ TELEGRAM БОТА
-========================
-*/
-
-app.post('/api/save-test-results', async (req, res) => {
-    try {
-        const { 
-            telegram_id, 
-            telegram_name,
-            profile, 
-            scores, 
-            ai_prompt,
-            session_token,
-            answers 
-        } = req.body;
-
-        console.log('📥 Получены результаты теста:', { 
-            session_token, 
-            telegram_id,
-            profile 
-        });
-
-        let sessionId;
-
-        // Обновляем сессию с результатами теста
-        const updateResult = await query(
-            `UPDATE sessions SET
-             occasion = $1,
-             recipient_person_type = $2,
-             mood = $3,
-             color_preferences = $4,
-             flower_preferences = $5,
-             telegram_user_id = $6,
-             telegram_username = $7,
-             status = 'completed',
-             completed_at = NOW()
-             WHERE share_token = $8
-             RETURNING id`,
-            [
-                'telegram_test',
-                profile?.form || 'self',
-                profile?.mood || 'happy',
-                profile?.color || 'pastel',
-                profile?.flower || 'mixed',
-                telegram_id ? String(telegram_id) : null,
-                telegram_name || null,
-                session_token
-            ]
-        );
-
-        if (updateResult.rows.length === 0) {
-            console.log('⚠️ Сессия не найдена, создаем новую');
-            // Если сессия не найдена, создаем новую
-            const newSession = await query(
-                `INSERT INTO sessions 
-                 (share_token, telegram_user_id, telegram_username, status, completed_at)
-                 VALUES ($1, $2, $3, 'completed', NOW())
-                 RETURNING id`,
-                [session_token, telegram_id ? String(telegram_id) : null, telegram_name || null]
-            );
-            
-            sessionId = newSession.rows[0].id;
-            console.log('✅ Создана новая сессия с ID:', sessionId);
-        } else {
-            sessionId = updateResult.rows[0].id;
-            console.log('✅ Обновлена существующая сессия с ID:', sessionId);
-        }
-
-        // Сохраняем промпт для генерации
-        const requestId = 'gen_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        
-        await query(
-            `INSERT INTO bouquets
-             (session_id, prompt_text, generation_status, generation_request_id)
-             VALUES($1, $2, 'pending', $3)`,
-            [sessionId, ai_prompt, requestId]
-        );
-
-        console.log('📝 Сохранен промпт для генерации, requestId:', requestId);
-
-        // Запускаем генерацию в фоне
-        generateAndSaveImage(ai_prompt, requestId, session_token).catch(error => {
-            console.error('❌ Ошибка в фоновой генерации:', error);
-        });
-
-        res.json({ 
-            success: true,
-            message: 'Результаты сохранены',
-            requestId: requestId
-        });
-
-    } catch (err) {
-        console.error('❌ Ошибка сохранения результатов:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-
-/*
-========================
-ГЛАВНАЯ СТРАНИЦА
+ГЛАВНЫЕ СТРАНИЦЫ
 ========================
 */
 
@@ -832,131 +764,7 @@ app.get('/quiz/:token', (req, res) => {
 app.get('/order/:orderNumber', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'order.html'));
 });
-// ПОЛУЧЕНИЕ СТАТУСА ТЕСТА И ГЕНЕРАЦИИ ПО ТОКЕНУ
-app.get('/api/quiz-status/:token', async (req, res) => {
-    try {
-        const { token } = req.params;
-        
-        console.log(`🔍 Проверка статуса для токена: ${token}`);
-        
-        // Получаем информацию о сессии и букете
-        const result = await query(
-            `SELECT 
-                s.id as session_id,
-                s.status as session_status,
-                s.completed_at,
-                s.telegram_user_id,
-                s.occasion,
-                s.recipient_person_type,
-                s.mood,
-                s.color_preferences,
-                s.flower_preferences,
-                b.id as bouquet_id,
-                b.image_url,
-                b.generation_status,
-                b.generation_request_id,
-                b.prompt_text,
-                b.created_at as generation_started_at
-             FROM sessions s
-             LEFT JOIN bouquets b ON s.id = b.session_id
-             WHERE s.share_token = $1
-             ORDER BY b.created_at DESC
-             LIMIT 1`,
-            [token]
-        );
 
-        if (result.rows.length === 0) {
-            return res.json({ 
-                status: 'not_found',
-                message: 'Сессия не найдена'
-            });
-        }
-
-        const session = result.rows[0];
-        
-        // Определяем статус для фронтенда
-        let responseStatus = {
-            token: token,
-            session_id: session.session_id,
-            test_completed: !!session.completed_at,
-            session_status: session.session_status,
-            has_generation: !!session.bouquet_id,
-            timestamp: new Date().toISOString()
-        };
-
-        // Если тест не пройден
-        if (!session.completed_at) {
-            responseStatus.status = 'test_pending';
-            responseStatus.message = 'Ожидание прохождения теста в Telegram';
-        } 
-        // Если тест пройден, но генерация еще не началась
-        else if (!session.bouquet_id) {
-            responseStatus.status = 'generation_pending';
-            responseStatus.message = 'Тест пройден, подготовка генерации...';
-        }
-        // Если генерация в процессе
-        else if (session.generation_status === 'pending') {
-            responseStatus.status = 'generating';
-            responseStatus.message = 'Генерация вашего уникального букета...';
-            responseStatus.generation_request_id = session.generation_request_id;
-            responseStatus.generation_started = session.generation_started_at;
-        }
-        // Если генерация завершена
-        else if (session.generation_status === 'completed' && session.image_url) {
-            responseStatus.status = 'ready';
-            responseStatus.message = 'Ваш букет готов!';
-            responseStatus.image_url = session.image_url;
-            responseStatus.bouquet_id = session.bouquet_id;
-            responseStatus.profile = {
-                occasion: session.occasion,
-                person_type: session.recipient_person_type,
-                mood: session.mood,
-                color: session.color_preferences,
-                flower: session.flower_preferences
-            };
-        }
-        // Если генерация не удалась
-        else if (session.generation_status === 'failed') {
-            responseStatus.status = 'failed';
-            responseStatus.message = 'Не удалось сгенерировать букет. Пожалуйста, попробуйте позже.';
-        }
-
-        // Логируем для отладки
-        console.log(`📊 Статус для токена ${token}:`, {
-            status: responseStatus.status,
-            test_completed: responseStatus.test_completed,
-            generation_status: session.generation_status
-        });
-
-        res.json(responseStatus);
-
-    } catch (err) {
-        console.error('❌ Ошибка проверки статуса:', err);
-        res.status(500).json({ 
-            status: 'error',
-            error: err.message 
-        });
-    }
-});
-
-// Проверка существования сессии по токену
-app.get('/api/check-session/:token', async (req, res) => {
-    try {
-        const { token } = req.params;
-        
-        const result = await query(
-            'SELECT id FROM sessions WHERE share_token = $1',
-            [token]
-        );
-        
-        res.json({
-            exists: result.rows.length > 0
-        });
-    } catch (err) {
-        console.error('❌ Ошибка проверки сессии:', err);
-        res.status(500).json({ error: err.message });
-    }
-});
 /*
 ========================
 ЗАПУСК СЕРВЕРА
@@ -967,23 +775,18 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`
 🚀 FloraAI server running
 
-📡 URL: http://0.0.0.0:${PORT}
-🌐 Доступно из сети по IP: http://10.20.130.157:${PORT}
+📡 URL: http://5.129.243.61:${PORT}
 🔌 PORT: ${PORT}
 
-📋 Endpoints:
-   POST   /api/create-session       - Создать сессию
-   POST   /api/save-answers         - Сохранить ответы
-   POST   /api/generate             - Сгенерировать букет
-   GET    /api/session-results/:token - Получить результаты
-   POST   /api/select-bouquet       - Выбрать букет
-   POST   /api/create-order         - Создать заказ
-   GET    /api/order/:number        - Информация о заказе
-   GET    /api/admin/stats          - Статистика
-   GET    /api/test                 - Проверка сервера
-   GET    /api/test-db              - Проверка БД
+📋 Основные эндпоинты:
+   POST   /api/create-session              - Создать сессию (с сайта)
+   POST   /api/create-session-with-token    - Создать сессию с токеном (для бота)
+   POST   /api/save-test-results            - Сохранить результаты теста (от бота)
+   GET    /api/quiz-status/:token           - Получить статус (для сайта)
+   GET    /api/check-session/:token         - Проверить сессию
+   GET    /api/session-results/:token       - Получить результаты
+   POST   /api/create-order                  - Создать заказ
 
-📊 База данных: Timeweb PostgreSQL
-   ${process.env.DATABASE_URL?.replace(/:[^:]*@/, ':*****@')}
-`);
+📊 Интеграция с Telegram ботом готова!
+    `);
 });
