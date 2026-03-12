@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FloraAI - Подбор букетов с искусственным интеллектом</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #c86eb8;
+            --primary-light: #cebaf5;
+            --secondary: #ff6b8b;
+            --accent: #4fd1c7;
+            --dark: #2d3748;
+            --light: #f7fafc;
+            --gray: #718096;
+            --border: #e2e8f0;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --radius: 12px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--dark);
+            background-color: var(--light);
+            line-height: 1.6;
+        }
+
+        h1, h2, h3, h4 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Навигация */
+        header {
+            background-color: white;
+            box-shadow: var(--shadow);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .logo i {
+            margin-right: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 30px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .nav-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: var(--radius);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .nav-btn:hover {
+            background-color: var(--primary-light);
+        }
+
+        /* Главная страница */
+        .hero {
+            padding: 160px 0 100px;
+            background: linear-gradient(135deg, #f9f7ff 0%, #f0edff 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: "";
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(138, 79, 255, 0.1) 0%, rgba(79, 209, 199, 0.1) 100%);
+            top: -100px;
+            right: -100px;
+        }
+
+        .hero-content {
+            max-width: 600px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            line-height: 1.2;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--gray);
+            margin-bottom: 2rem;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background-color: var(--secondary);
+            color: white;
+            padding: 16px 32px;
+            border-radius: var(--radius);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            box-shadow: var(--shadow);
+        }
+
+        .cta-button:hover {
+            background-color: #d81a43;
+            transform: translateY(-3px);
+        }
+
+        .hero-image {
+            position: absolute;
+            right: 0;
+            top: 100px;
+            width: 50%;
+            max-width: 600px;
+            z-index: 0;
+        }
+
+        .hero-image img {
+            width: 100%;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        /* Преимущества */
+        .features {
+            padding: 100px 0;
+            background-color: white;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            background-color: white;
+            padding: 30px;
+            border-radius: var(--radius);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border-top: 4px solid var(--primary);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: var(--shadow);
+        }
+
+        .feature-icon {
+            background-color: rgba(138, 79, 255, 0.1);
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .feature-icon i {
+            font-size: 1.8rem;
+            color: var(--primary);
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+
+        /* Страница чата */
+        .chat-page {
+            padding: 140px 0 60px;
+            min-height: 100vh;
+            background-color: #f9f9fb;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            height: 700px;
+        }
+
+        .chat-header {
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header h2 {
+            margin-bottom: 0;
+        }
+
+        .chat-header-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-header-info i {
+            font-size: 1.2rem;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            line-height: 1.5;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background-color: var(--primary);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .ai-message {
+            align-self: flex-start;
+            background-color: #f1f1f7;
+            color: var(--dark);
+            border-bottom-left-radius: 5px;
+        }
+
+        .chat-input-container {
+            border-top: 1px solid var(--border);
+            padding: 20px 30px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            resize: none;
+            max-height: 100px;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .send-button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            width: 50px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .send-button:hover {
+            background-color: var(--primary-light);
+        }
+
+        .send-button i {
+            font-size: 1.2rem;
+        }
+
+        .chat-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: rgba(79, 209, 199, 0.1);
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            color: var(--dark);
+        }
+
+        .chat-info i {
+            color: var(--accent);
+            margin-right: 8px;
+        }
+
+        /* Примеры критериев */
+        .criteria-examples {
+            background-color: white;
+            padding: 60px 0;
+        }
+
+        .criteria-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .criteria-card {
+            padding: 20px;
+            border-radius: var(--radius);
+            background-color: #f8f9ff;
+            border-left: 4px solid var(--accent);
+        }
+
+        /* Футер */
+        footer {
+            background-color: var(--dark);
+            color: white;
+            padding: 60px 0 30px;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-column h3 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 10px;
+        }
+
+        .footer-links a {
+            color: #cbd5e0;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: white;
+        }
+
+        .copyright {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid #4a5568;
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        /* Утилиты */
+        .hidden {
+            display: none;
+        }
+
+        .back-button {
+            background-color: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            padding: 10px 20px;
+            border-radius: var(--radius);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-button:hover {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 992px) {
+            .hero {
+                padding: 140px 0 80px;
+            }
+            
+            .hero h1 {
+                font-size: 2.8rem;
+            }
+            
+            .hero-image {
+                position: relative;
+                width: 100%;
+                top: 0;
+                margin-top: 40px;
+            }
+            
+            .chat-container {
+                height: 600px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+            
+            .section-title {
+                font-size: 2rem;
+            }
+            
+            .chat-messages {
+                padding: 20px;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигация -->
+    <header>
+        <div class="container">
+            <nav>
+                <div class="logo">
+                    <i class="fas fa-seedling"></i>
+                    <span>FloraMind</span>
+                </div>
+                <ul class="nav-links">
+                    <li><a href="#home">Главная</a></li>
+                    <li><a href="#features">Преимущества</a></li>
+                    <li><a href="#chat" id="chat-link">Подбор букета</a></li>
+                </ul>
+                <button class="nav-btn" id="openChatBtn">Подобрать букет</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Главная страница -->
+    <section class="hero" id="home">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Идеальный букет для любого повода</h1>
+                <p>FloraAI анализирует повод и предпочтения получателя, чтобы создать уникальный цветочный букет с романтичным описанием. Просто укажите детали — наш искусственный интеллект сделает всё остальное.</p>
+                <button class="nav-btn" id="open2ChatBtn">Подобрать букет</button>
+            </div>
+            <div class="hero-image"><img src="resources/flow.jpg" alt="Красивый цветочный букет">
+            </div>
+                
+        </div>
+    </section>
+
+    <!-- Преимущества -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2 class="section-title">Почему выбирают FloraAI</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h3>Искусственный интеллект</h3>
+                    <p>Наш ИИ анализирует тысячи комбинаций цветов, чтобы подобрать идеальный букет для любого повода и получателя.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                    <h3>Персонализация</h3>
+                    <p>Учитываем все детали: повод, характер получателя, предпочтения в цветах и даже бюджет.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-pen-fancy"></i>
+                    </div>
+                    <h3>Романтичные описания</h3>
+                    <p>Каждый букет сопровождается уникальным поэтичным описанием, которое тронет сердце получателя.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Примеры критериев -->
+    <section class="criteria-examples">
+        <div class="container">
+            <h2 class="section-title">Что указать для идеального букета</h2>
+            <div class="criteria-grid">
+                <div class="criteria-card">
+                    <h4>Повод</h4>
+                    <p>День рождения, годовщина, свадьба, извинение, признание в любви, просто так.</p>
+                </div>
+                <div class="criteria-card">
+                    <h4>Получатель</h4>
+                    <p>Возраст, характер (романтичный, практичный, сентиментальный), любимые цвета.</p>
+                </div>
+                <div class="criteria-card">
+                    <h4>Предпочтения</h4>
+                    <p>Тип цветов (розы, тюльпаны, орхидеи), цветовая гамма, размер букета, бюджет.</p>
+                </div>
+                <div class="criteria-card">
+                    <h4>Дополнительно</h4>
+                    <p>Ваши отношения с получателем, важные детали, которые стоит учесть.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Страница чата (скрыта по умолчанию) -->
+    <section class="chat-page hidden" id="chat">
+        <div class="container">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <h2><i class="fas fa-robot"></i> FloraAI Помощник</h2>
+                    <div class="chat-header-info">
+                        <i class="fas fa-lightbulb"></i>
+                        <span>Расскажите о поводе и получателе</span>
+                    </div>
+                </div>
+                
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message ai-message">
+                        <p>Привет! Я FloraAI — ваш помощник в подборе идеального цветочного букета. 🌸</p>
+                        <p>Расскажите мне о поводе и человеке, для которого предназначен букет. Например:</p>
+                        <ul>
+                            <li>Какой повод (день рождения, годовщина, 8 марта)?</li>
+                            <li>Кто получатель (возраст, характер, предпочтения)?</li>
+                            <li>Есть ли особые пожелания (цвета, тип цветов, бюджет)?</li>
+                        </ul>
+                        <p>Я подберу идеальную композицию и создам для неё романтичное описание!</p>
+                    </div>
+                </div>
+                
+                <div class="chat-input-container">
+                    <textarea class="chat-input" id="user-input" placeholder="Опишите повод и получателя букета... Например: 'Нужен букет для дня рождения моей мамы. Ей 55 лет, она любит розовые и белые цветы, романтичная натура.'" rows="3"></textarea>
+                    <button class="send-button" id="send-button">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="chat-info">
+                <i class="fas fa-info-circle"></i>
+                <span>FloraAI проанализирует ваши критерии и создаст уникальный букет с описанием. Вы можете уточнять детали в диалоге.</span>
+            </div>
+            
+            <button class="back-button" id="back-button">
+                <i class="fas fa-arrow-left"></i> Вернуться на главную
+            </button>
+        </div>
+    </section>
+
+    <!-- Футер -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-column">
+                    <h3>FloraAI</h3>
+                    <p>Сервис подбора цветочных букетов с использованием искусственного интеллекта для создания идеальных композиций.</p>
+                </div>
+                <div class="footer-column">
+                    <h3>Навигация</h3>
+                    <ul class="footer-links">
+                        <li><a href="#home">Главная</a></li>
+                        <li><a href="#features">Преимущества</a></li>
+                        <li><a href="#chat">Подбор букета</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h3>Контакты</h3>
+                    <ul class="footer-links">
+                        <li><a href="mailto:hello@floraai.com">hello@floraai.com</a></li>
+                        <li><a href="tel:+78001234567">8 (800) 123-45-67</a></li>
+                        <li>Москва, ул. Цветочная, 15</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>&copy; 2023 FloraAI. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+    <script>
+        document.getElementById('openChatBtn').addEventListener('click', function() {
+            // Открываем страницу чата в новом окне
+            window.open('public/index.html', 'FloraAI Chat', 
+                'width=500,height=700,resizable=yes,scrollbars=yes');
+        });
+        document.getElementById('open2ChatBtn').addEventListener('click', function() {
+            // Открываем страницу чата в новом окне
+            window.open('chat.html', 'FloraAI Chat', 
+                'width=500,height=700,resizable=yes,scrollbars=yes');
+        });
+    </script>
+    <script>
+        // Элементы DOM
+        const homePage = document.getElementById('home').parentElement;
+        const chatPage = document.getElementById('chat');
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const startChatBtn = document.getElementById('start-chat-btn');
+        const heroChatBtn = document.getElementById('hero-chat-btn');
+        const chatLink = document.getElementById('chat-link');
+        const backButton = document.getElementById('back-button');
+        
+        // Примеры ответов ИИ для разных запросов
+        const aiResponses = {
+            "день рождения мамы": {
+                bouquet: "Нежный букет из розовых пионов, белых эустом и зелени эвкалипта",
+                description: "Этот букет, как материнская любовь — нежный, тёплый и безусловный. Пионы символизируют процветание и счастливую жизнь, эустомы — душевную гармонию, а эвкалипт добавляет нотку спокойствия и умиротворения. Идеально для женщины, чья душа — весенний сад."
+            },
+            "любимой девушке": {
+                bouquet: "Страстная композиция из алых роз, бордовых анемонов и тёмной зелени",
+                description: "Пламя чувств, застывшее в лепестках. Алые розы говорят о страсти, анемоны — о ожидании встречи, а тёмная зелень подчёркивает глубину ваших чувств. Этот букет — немое признание, которое скажет больше слов."
+            },
+            "коллеге на 8 марта": {
+                bouquet: "Светлая композиция из тюльпанов, нарциссов и фрезий",
+                description: "Свежесть весны и лёгкость бытия. Тюльпаны символизируют совершенство, нарциссы — новые начинания, фрезии — доверие и дружбу. Идеальный способ поздравить коллегу, выразив уважение и признательность."
+            },
+            "извинение": {
+                bouquet: "Скромный букет из белых лилий, голубых гортензий и зелени папоротника",
+                description: "Тихий шёпот искренних чувств. Белые лилии символизируют чистоту намерений, гортензии — понимание, а папоротник добавляет ноту смирения. Этот букет говорит: 'Моё сердце открыто для диалога'."
+            }
+        };
+        
+        // Функция для переключения на страницу чата
+        function showChatPage() {
+            homePage.classList.add('hidden');
+            chatPage.classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
+        
+        // Функция для переключения на главную страницу
+        function showHomePage() {
+            chatPage.classList.add('hidden');
+            homePage.classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
+        
+        // Функция для добавления сообщения в чат
+        function addMessage(text, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+            messageDiv.innerHTML = `<p>${text}</p>`;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Функция для генерации ответа ИИ
+        function generateAIResponse(userMessage) {
+            userMessage = userMessage.toLowerCase();
+            
+            // Поиск ключевых слов в сообщении пользователя
+            let responseKey = "default";
+            
+            if (userMessage.includes("мам") || userMessage.includes("матери")) {
+                responseKey = "день рождения мамы";
+            } else if (userMessage.includes("любим") || userMessage.includes("девушк") || userMessage.includes("жен")) {
+                responseKey = "любимой девушке";
+            } else if (userMessage.includes("коллег") || userMessage.includes("8 мар")) {
+                responseKey = "коллеге на 8 марта";
+            } else if (userMessage.includes("извин") || userMessage.includes("прощени")) {
+                responseKey = "извинение";
+            }
+            
+            // Если найдено совпадение, используем подготовленный ответ
+            if (aiResponses[responseKey]) {
+                return `На основе вашего описания я подобрала идеальный букет:<br><br>
+                <strong>${aiResponses[responseKey].bouquet}</strong><br><br>
+                <em>${aiResponses[responseKey].description}</em><br><br>
+                Хотите уточнить какие-то детали или рассмотреть другие варианты?`;
+            }
+            
+            // Общий ответ, если не найдено совпадение
+            return `На основе вашего описания я подобрала бы элегантный букет из розовых роз, белых лилий и зелени эвкалипта. Эта композиция символизирует нежность, чистоту намерений и гармонию. Хотите, чтобы я уточнила какие-то детали или предложила альтернативные варианты?`;
+        }
+        
+        // Обработчик отправки сообщения
+        function handleSendMessage() {
+            const message = userInput.value.trim();
+            
+            if (message === '') return;
+            
+            // Добавляем сообщение пользователя
+            addMessage(message, true);
+            
+            // Очищаем поле ввода
+            userInput.value = '';
+            
+            // Имитируем задержку ответа ИИ
+            setTimeout(() => {
+                const aiResponse = generateAIResponse(message);
+                addMessage(aiResponse, false);
+            }, 1000);
+        }
+        
+        // События
+        startChatBtn.addEventListener('click', showChatPage);
+        heroChatBtn.addEventListener('click', showChatPage);
+        chatLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            showChatPage();
+        });
+        
+        backButton.addEventListener('click', showHomePage);
+        
+        sendButton.addEventListener('click', handleSendMessage);
+        
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+            }
+        });
+        
+        // Пример автоматического диалога при загрузке страницы чата (для демонстрации)
+        window.addEventListener('load', function() {
+            // Проверяем, есть ли параметр в URL для автоматического открытия чата
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('chat') === 'true') {
+                showChatPage();
+                
+                // Добавляем демонстрационные сообщения
+                setTimeout(() => {
+                    addMessage("Нужен букет для дня рождения моей мамы. Ей 55 лет, она любит розовые и белые цветы, романтичная натура.", true);
+                    
+                    setTimeout(() => {
+                        const response = generateAIResponse("день рождения мамы");
+                        addMessage(response, false);
+                    }, 1000);
+                }, 1500);
+            }
+        });
+    </script>
+</body>
+</html>

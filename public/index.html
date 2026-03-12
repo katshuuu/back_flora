@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FloraAI - Создайте уникальный букет с ИИ</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Шапка чата -->
+    <div class="chat-header">
+        <div class="header-left">
+            <div class="ai-avatar">
+                <i class="fas fa-seedling"></i>
+            </div>
+            <div class="header-info">
+                <h1>FloraAI: персональный флорист🌹</h1>
+                <p>Создам уникальный букет специально для вас</p>
+            </div>
+        </div>
+        <button class="close-btn" id="closeBtn">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- Прогресс создания -->
+    <div class="creation-progress" id="creationProgress">
+        <div class="progress-header">
+            <div class="progress-title">Создаём ваш уникальный букет...</div>
+            <div class="progress-step" id="progressStep">Вопрос 1 из 6</div>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+    </div>
+
+    <!-- Основной контейнер чата -->
+    <div class="chat-container">
+        <!-- Область сообщений -->
+        <div class="chat-messages" id="chatMessages">
+            <!-- Первое сообщение от ИИ -->
+            <div class="message ai-message" id="initialMessage">
+                <div class="message-header">
+                    <i class="fas fa-spa"></i>
+                    <span>FloraAI</span>
+                </div>
+                <p>Здравствуйте🤍 
+                    <br> Я ваш персональный флорист с искусственным интеллектом. Помогу создать уникальную цветочную композицию, которая идеально передаст ваши чувства.</p>
+                <p>Я задам вам несколько вопросов, чтобы лучше понять ваши предпочтения, и создам индивидуальный букет именно для вашего случая!</p>
+            </div>
+        </div>
+
+        <!-- Футер с информацией -->
+        <div class="chat-footer">
+            <i class="fas fa-lock"></i> Ваши данные защищены и используются только для создания букета
+        </div>
+    </div>
+
+    <!-- Поле ввода (скрыто по умолчанию) -->
+    <div class="chat-input-container" id="chatInputContainer">
+        <div class="input-wrapper">
+            <textarea 
+                class="chat-input" 
+                id="userInput" 
+                placeholder="Введите ваш ответ здесь..." 
+                rows="2"></textarea>
+            <button class="send-button" id="sendButton">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- ДОБАВЛЯЕМ: скрытые элементы для статуса теста -->
+    <div id="testStatus" style="display: none;"></div>
+    <div id="generationStatus" style="display: none;"></div>
+    
+    <!-- Подключаем скрипты в правильном порядке -->
+    <script src="/js/quiz.js"></script>
+    <script src="/js/script.js"></script>
+    <!-- order.js подключаем только на странице заказа, здесь не нужен -->
+</body>
+</html>

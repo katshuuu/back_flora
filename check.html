@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Проверка базы данных</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button { background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+        pre { background: #f8f8f8; padding: 10px; border-radius: 4px; overflow: auto; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Проверка интеграции Telegram бота</h1>
+        
+        <div class="card">
+            <h2>1. Проверка сервера</h2>
+            <button onclick="checkServer()">Проверить</button>
+            <pre id="serverResult"></pre>
+        </div>
+
+        <div class="card">
+            <h2>2. Последние Telegram сессии</h2>
+            <button onclick="checkTelegramSessions()">Показать</button>
+            <pre id="sessionsResult"></pre>
+        </div>
+
+        <div class="card">
+            <h2>3. Сгенерированные букеты</h2>
+            <button onclick="checkBouquets()">Показать</button>
+            <pre id="bouquetsResult"></pre>
+        </div>
+
+        <div class="card">
+            <h2>4. Поиск по токену</h2>
+            <input type="text" id="tokenInput" placeholder="Введите токен" style="width: 300px; padding: 5px;">
+            <button onclick="searchByToken()">Найти</button>
+            <pre id="searchResult"></pre>
+        </div>
+    </div>
+
+    <script>
+        async function checkServer() {
+            const res = await fetch('http://localhost:3001/api/test');
+            const data = await res.json();
+            document.getElementById('serverResult').innerHTML = JSON.stringify(data, null, 2);
+        }
+
+        async function checkTelegramSessions() {
+            const res = await fetch('http://localhost:3001/api/admin/stats');
+            const stats = await res.json();
+            
+            // Здесь нужно добавить эндпоинт для получения списка сессий
+            document.getElementById('sessionsResult').innerHTML = 
+                'Статистика:\n' + JSON.stringify(stats, null, 2);
+        }
+
+        async function checkBouquets() {
+            // Временно показываем статистику
+            const res = await fetch('http://localhost:3001/api/admin/stats');
+            const data = await res.json();
+            document.getElementById('bouquetsResult').innerHTML = 
+                'Всего букетов: ' + data.total_bouquets + '\n\n' +
+                'Для просмотра списка используйте SQL запрос в БД';
+        }
+
+        async function searchByToken() {
+            const token = document.getElementById('tokenInput').value;
+            if (!token) return;
+            
+            const res = await fetch(`http://localhost:3001/api/check-order/${token}`);
+            const data = await res.json();
+            document.getElementById('searchResult').innerHTML = JSON.stringify(data, null, 2);
+        }
+    </script>
+</body>
+</html>
