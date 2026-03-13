@@ -470,8 +470,26 @@ function showGeneratedBouquet(imageUrl) {
     const resultDiv = document.createElement('div');
     resultDiv.className = 'bouquet-result-wrapper';
     
+    // Определяем, откуда пришли данные - из Telegram или с сайта
+    const isTelegramFlow = !state.answers.forWhom && !state.answers.occasion;
+    
+    // Определяем тип получателя
+    const isForSelf = state.recipientType === 'self';
+    
+    // Формируем описание в зависимости от сценария
+    let descriptionText = '';
+    if (isTelegramFlow) {
+        // Сценарий: тест пройден в Telegram (не важно, self или other)
+        descriptionText = isForSelf 
+            ? 'Букет, созданный под Ваши предпочтения🤍' 
+            : 'Букет, созданный под предпочтения адресата🤍';
+    } else {
+        // Сценарий: тест пройден на сайте (только для other)
+        descriptionText = generateBouquetDescription();
+    }
+    
     const resultHTML = `
-        <div class="bouquet-result" id="bouquetResult">
+        <div class="bouquet-result" id="bouquetResult" style="display: inline-block; max-width: 100%; width: fit-content; margin: 0 auto;">
             <div class="result-header">
                 <div class="result-icon">
                     <i class="fas fa-magic"></i>
@@ -480,15 +498,16 @@ function showGeneratedBouquet(imageUrl) {
                 <div class="result-subtitle">Создано с помощью YandexART</div>
             </div>
             
-            <div class="bouquet-image-container" id="bouquetImageContainer">
-                <img class="bouquet-image" id="bouquetImage" src="${imageUrl}" alt="Ваш уникальный букет" style="width: 100%; border-radius: 12px; cursor: pointer;">
+            <div class="bouquet-image-container" id="bouquetImageContainer" style="text-align: center; overflow: visible; width: fit-content; max-width: 100%; margin: 20px auto;">
+                <img class="bouquet-image" id="bouquetImage" src="${imageUrl}" alt="Ваш уникальный букет" style="display: block; width: auto; height: auto; max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); cursor: pointer; transition: all 0.3s ease;">
             </div>
             
             <div class="bouquet-description">
-                ${generateBouquetDescription()}
+                ${descriptionText}
             </div>
             
-            <div class="bouquet-details" id="bouquetDetails">
+            ${!isTelegramFlow ? `
+            <div class="bouquet-details" id="bouquetDetails" style="width: fit-content; margin: 0 auto;">
                 <div class="detail-card">
                     <div class="detail-card-title">Для кого</div>
                     <div class="detail-card-value">${getOptionText('forWhom')}</div>
@@ -506,6 +525,7 @@ function showGeneratedBouquet(imageUrl) {
                     <div class="detail-card-value">${getOptionText('occasion')}</div>
                 </div>
             </div>
+            ` : ''}
             
             <div style="text-align: center; margin-top: 20px;">
                 <button class="order-bouquet-btn" onclick="askOrderQuestion()">
@@ -521,8 +541,43 @@ function showGeneratedBouquet(imageUrl) {
     // Добавляем обработчик для увеличения изображения
     const bouquetImage = document.getElementById('bouquetImage');
     if (bouquetImage) {
-        bouquetImage.addEventListener('click', function() {
-            this.classList.toggle('expanded');
+        // Состояние увеличения
+        let isExpanded = false;
+        
+        // Функция для закрытия при клике вне изображения
+        function handleDocumentClick(event) {
+            if (isExpanded && !bouquetImage.contains(event.target)) {
+                // Возвращаем исходные стили
+                bouquetImage.style.maxWidth = '100%';
+                bouquetImage.style.width = 'auto';
+                bouquetImage.style.position = 'static';
+                bouquetImage.style.transform = 'none';
+                bouquetImage.style.zIndex = '1';
+                isExpanded = false;
+                
+                // Удаляем обработчик после закрытия
+                document.removeEventListener('click', handleDocumentClick);
+            }
+        }
+        
+        // Обработчик клика на изображение
+        bouquetImage.addEventListener('click', function(event) {
+            event.stopPropagation(); // Предотвращаем всплытие события
+            
+            if (!isExpanded) {
+                // Увеличиваем изображение
+                this.style.maxWidth = 'none';
+                this.style.width = 'auto';
+                this.style.position = 'relative';
+                this.style.transform = 'scale(1.5)';
+                this.style.zIndex = '1000';
+                isExpanded = true;
+                
+                // Добавляем обработчик для закрытия при клике вне изображения
+                setTimeout(() => {
+                    document.addEventListener('click', handleDocumentClick);
+                }, 0);
+            }
         });
     }
     

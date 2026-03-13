@@ -5,8 +5,8 @@
  }
 
  :root {
-     --primary: #931a1a;
-     --primary-light: #ed9f9f;
+     --primary: #d85b8f;
+     --primary-light: #faafbd;
      --secondary: #d23f5f;
      --accent: #4fd1c7;
      --success: #38b2ac;
@@ -721,18 +721,18 @@
 }
 
 .test-status-indicator .status-info.pending {
-    color: #f39c12;
-    border-left-color: #f39c12;
+    color: #f7d5a0;
+    border-left-color: #f7d5a0;
 }
 
 .test-status-indicator .status-info.generating {
-    color: #3498db;
-    border-left-color: #3498db;
+    color: #89cdfa;
+    border-left-color: #34a9db;
 }
 
 .test-status-indicator .status-info.ready {
-    color: #27ae60;
-    border-left-color: #27ae60;
+    color: #b1dbc3;
+    border-left-color: #b5e8ca;
 }
 
 .test-status-indicator .status-info.failed {
@@ -771,7 +771,7 @@
 }
 
 .bouquet-message .order-bouquet-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #4deede 0%, #3e9bb7 100%);
     color: white;
     border: none;
     padding: 12px 30px;
@@ -790,7 +790,7 @@
 
 /* Контейнер ссылки на тест */
 .test-link-container {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #4deede 0%, #3e9bb7 100%);
     border-radius: 12px;
     padding: 20px;
     margin: 15px 0;
