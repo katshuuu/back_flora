@@ -499,7 +499,7 @@ function showGeneratedBouquet(imageUrl) {
             </div>
             
             <div class="bouquet-image-container" id="bouquetImageContainer" style="text-align: center; overflow: visible; width: fit-content; max-width: 100%; margin: 20px auto;">
-                <img class="bouquet-image" id="bouquetImage" src="${imageUrl}" alt="Ваш уникальный букет" style="display: block; width: auto; height: auto; max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); cursor: pointer; transition: all 0.3s ease;">
+                <img class="bouquet-image" id="bouquetImage" src="${imageUrl}" alt="Ваш уникальный букет" style="display: block; width: auto; height: auto; max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); cursor: pointer; transition: all 0.3s ease; transform-origin: center center;">
             </div>
             
             <div class="bouquet-description">
@@ -540,23 +540,30 @@ function showGeneratedBouquet(imageUrl) {
     
     // Добавляем обработчик для увеличения изображения
     const bouquetImage = document.getElementById('bouquetImage');
-    if (bouquetImage) {
+    const imageContainer = document.getElementById('bouquetImageContainer');
+    
+    if (bouquetImage && imageContainer) {
         // Состояние увеличения
         let isExpanded = false;
         
-        // Функция для закрытия при клике вне изображения
-        function handleDocumentClick(event) {
-            if (isExpanded && !bouquetImage.contains(event.target)) {
+        // Функция для закрытия
+        function closeExpandedImage() {
+            if (isExpanded) {
                 // Возвращаем исходные стили
-                bouquetImage.style.maxWidth = '100%';
-                bouquetImage.style.width = 'auto';
-                bouquetImage.style.position = 'static';
-                bouquetImage.style.transform = 'none';
+                bouquetImage.style.transform = 'scale(1)';
                 bouquetImage.style.zIndex = '1';
+                bouquetImage.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
                 isExpanded = false;
                 
                 // Удаляем обработчик после закрытия
                 document.removeEventListener('click', handleDocumentClick);
+            }
+        }
+        
+        // Обработчик клика вне изображения
+        function handleDocumentClick(event) {
+            if (isExpanded && !bouquetImage.contains(event.target)) {
+                closeExpandedImage();
             }
         }
         
@@ -565,19 +572,36 @@ function showGeneratedBouquet(imageUrl) {
             event.stopPropagation(); // Предотвращаем всплытие события
             
             if (!isExpanded) {
-                // Увеличиваем изображение
-                this.style.maxWidth = 'none';
-                this.style.width = 'auto';
-                this.style.position = 'relative';
+                // Увеличиваем изображение (scale 1.5)
                 this.style.transform = 'scale(1.5)';
                 this.style.zIndex = '1000';
+                this.style.boxShadow = '0 20px 40px rgba(0,0,0,0.3)';
                 isExpanded = true;
                 
                 // Добавляем обработчик для закрытия при клике вне изображения
+                // Используем setTimeout чтобы избежать немедленного срабатывания
                 setTimeout(() => {
                     document.addEventListener('click', handleDocumentClick);
                 }, 0);
+            } else {
+                // Если изображение уже увеличено, закрываем его
+                closeExpandedImage();
             }
+        });
+        
+        // Очистка обработчиков при удалении элемента (для предотвращения утечек памяти)
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (!document.body.contains(bouquetImage)) {
+                    document.removeEventListener('click', handleDocumentClick);
+                    observer.disconnect();
+                }
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
         });
     }
     
