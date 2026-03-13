@@ -336,6 +336,7 @@ async function showRecipientTestMessage() {
     }, 1000);
 }
 
+
 // Функция для обработки отправки ссылки
 function handleSendLink(token) {
     addMessage('Хорошо, сейчас отправлю ссылку', true);
@@ -345,17 +346,19 @@ function handleSendLink(token) {
     setTimeout(() => {
         removeTypingIndicator(typingIndicator);
         
-        addMessage(`Отлично! Я буду ждать, пока получатель пройдет тест. Как только он завершит тестирование, я сгенерирую изображение и сразу покажу вам результат! 🌸`, false);
+        addMessage(`Отлично! Я буду ждать, пока получатель пройдет тест в Telegram. Как только он завершит тестирование, я сгенерирую изображение и сразу покажу вам результат! 🌸`, false);
         
         showWaitingIndicator(token);
         
         state.currentStep = 'waitingForRecipient';
         creationProgress.style.display = 'none';
         
+        // Сохраняем тип получателя для правильного отображения
+        state.recipientType = 'other';
+        
         startStatusPolling(token);
     }, 800);
 }
-
 // Функция для обработки случая, когда не можем связаться с получателем
 function handleCantReachRecipient() {
     addMessage('Не могу связаться с получателем', true);
@@ -454,18 +457,73 @@ async function startBouquetGeneration() {
         addMessage(`Отлично! Я получила все ваши ответы🌸 Сейчас начинаю генерацию вашего уникального букета...`, false);
         
         try {
-            const { requestId } = await sendPromptToServer(prompt, state.sessionToken);
+            // Отправляем результаты теста на сервер
+            const response = await fetch('/api/save-test-results', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    session_token: state.sessionToken,
+                    profile: {
+                        form: state.recipientType === 'self' ? 'self' : 'other',
+                        mood: getMoodFromAnswers(), // Функция для определения настроения
+                        color: getColorPreference() // Функция для определения цветовых предпочтений
+                    },
+                    ai_prompt: prompt,
+                    answers: state.answers // Сохраняем все ответы
+                })
+            });
+
+            const data = await response.json();
             
-            addMessage(`✅ Запрос на генерацию отправлен! Искусственный интеллект создает ваш букет. Это займет около 30 секунд.`, false);
-            
-            // Запускаем проверку статуса для отслеживания генерации
-            startStatusPolling(state.sessionToken);
+            if (data.success) {
+                addMessage(`✅ Запрос на генерацию отправлен! Искусственный интеллект создает ваш букет. Это займет около 30 секунд.`, false);
+                
+                // Запускаем проверку статуса для отслеживания генерации
+                startStatusPolling(state.sessionToken);
+            } else {
+                throw new Error(data.error || 'Generation failed');
+            }
             
         } catch (error) {
             console.error('Generation error:', error);
             addMessage(`⚠️ Произошла ошибка при генерации изображения. Пожалуйста, попробуйте еще раз.`, false);
         }
     }, 1500);
+}
+
+// Вспомогательные функции для определения настроения и цвета
+function getMoodFromAnswers() {
+    const occasion = state.answers.occasion;
+    const forWhom = state.answers.forWhom;
+    
+    // Определяем настроение на основе ответов
+    if (occasion === 'свадьба' || occasion === 'годовщина' || forWhom === 'возлюбленный(ая)') {
+        return 'romantic';
+    } else if (occasion === 'день рождения' || occasion === '8 марта') {
+        return 'happy';
+    } else if (occasion === 'извинение') {
+        return 'dramatic';
+    } else {
+        return 'calm';
+    }
+}
+
+function getColorPreference() {
+    const colors = state.answers.colors;
+    
+    // Маппинг цветов в коды
+    const colorMap = {
+        'пастельные': 'P',
+        'яркие': 'B',
+        'бело-зеленые': 'N',
+        'красные': 'D',
+        'розовые': 'P',
+        'синие': 'D'
+    };
+    
+    return colorMap[colors] || 'P';
 }
 
 // Функция для показа сгенерированного букета
@@ -479,22 +537,33 @@ function showGeneratedBouquet(imageUrl) {
     const resultDiv = document.createElement('div');
     resultDiv.className = 'bouquet-result-wrapper';
     
-    // Определяем, откуда пришли данные - из Telegram или с сайта
-    const isTelegramFlow = !state.answers.forWhom && !state.answers.occasion;
+    // Определяем, откуда пришли данные
+    // Если есть ответы на вопросы - значит тест пройден на сайте
+    const isSiteTest = state.answers.forWhom && state.answers.occasion && state.answers.forWhom !== null;
     
     // Определяем тип получателя
     const isForSelf = state.recipientType === 'self';
     
     // Формируем описание в зависимости от сценария
     let descriptionText = '';
-    if (isTelegramFlow) {
-        // Сценарий: тест пройден в Telegram (не важно, self или other)
+    let showDetails = false;
+    
+    if (!isSiteTest) {
+        // Сценарий: тест пройден в Telegram
         descriptionText = isForSelf 
             ? 'Букет, созданный под Ваши предпочтения🤍' 
             : 'Букет, созданный под предпочтения адресата🤍';
+        showDetails = false;
     } else {
-        // Сценарий: тест пройден на сайте (только для other)
-        descriptionText = generateBouquetDescription();
+        // Сценарий: тест пройден на сайте
+        if (isForSelf) {
+            descriptionText = 'Букет, созданный под Ваши предпочтения🤍';
+            showDetails = false;
+        } else {
+            // Только для "для другого человека" + тест на сайте показываем детали
+            descriptionText = generateBouquetDescription();
+            showDetails = true;
+        }
     }
     
     const resultHTML = `
@@ -515,7 +584,7 @@ function showGeneratedBouquet(imageUrl) {
                 ${descriptionText}
             </div>
             
-            ${!isTelegramFlow ? `
+            ${showDetails ? `
             <div class="bouquet-details" id="bouquetDetails" style="width: fit-content; margin: 0 auto;">
                 <div class="detail-card">
                     <div class="detail-card-title">Для кого</div>
@@ -549,68 +618,23 @@ function showGeneratedBouquet(imageUrl) {
     
     // Добавляем обработчик для увеличения изображения
     const bouquetImage = document.getElementById('bouquetImage');
-    const imageContainer = document.getElementById('bouquetImageContainer');
-    
-    if (bouquetImage && imageContainer) {
-        // Состояние увеличения
+    if (bouquetImage) {
         let isExpanded = false;
         
-        // Функция для закрытия
-        function closeExpandedImage() {
-            if (isExpanded) {
-                // Возвращаем исходные стили
-                bouquetImage.style.transform = 'scale(1)';
-                bouquetImage.style.zIndex = '1';
-                bouquetImage.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
-                isExpanded = false;
-                
-                // Удаляем обработчик после закрытия
-                document.removeEventListener('click', handleDocumentClick);
-            }
-        }
-        
-        // Обработчик клика вне изображения
-        function handleDocumentClick(event) {
-            if (isExpanded && !bouquetImage.contains(event.target)) {
-                closeExpandedImage();
-            }
-        }
-        
-        // Обработчик клика на изображение
         bouquetImage.addEventListener('click', function(event) {
-            event.stopPropagation(); // Предотвращаем всплытие события
+            event.stopPropagation();
             
             if (!isExpanded) {
-                // Увеличиваем изображение (scale 1.5)
                 this.style.transform = 'scale(1.5)';
                 this.style.zIndex = '1000';
                 this.style.boxShadow = '0 20px 40px rgba(0,0,0,0.3)';
                 isExpanded = true;
-                
-                // Добавляем обработчик для закрытия при клике вне изображения
-                // Используем setTimeout чтобы избежать немедленного срабатывания
-                setTimeout(() => {
-                    document.addEventListener('click', handleDocumentClick);
-                }, 0);
             } else {
-                // Если изображение уже увеличено, закрываем его
-                closeExpandedImage();
+                this.style.transform = 'scale(1)';
+                this.style.zIndex = '1';
+                this.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
+                isExpanded = false;
             }
-        });
-        
-        // Очистка обработчиков при удалении элемента (для предотвращения утечек памяти)
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (!document.body.contains(bouquetImage)) {
-                    document.removeEventListener('click', handleDocumentClick);
-                    observer.disconnect();
-                }
-            });
-        });
-        
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
         });
     }
     
