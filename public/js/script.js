@@ -111,6 +111,18 @@ const questions = [
     }
 ];
 
+// Очищаем все при загрузке страницы
+window.addEventListener('load', function() {
+    // Принудительно очищаем localStorage
+    localStorage.removeItem('currentSessionToken');
+    
+    // Очищаем sessionStorage если используется
+    sessionStorage.clear();
+    
+    // Запускаем инициализацию чата
+    initChat();
+});
+
 // Функция для создания сессии на сервере
 async function createSession(recipientType) {
     try {
