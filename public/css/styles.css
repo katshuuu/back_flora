@@ -265,150 +265,214 @@
      color: white;
  }
 
- /* Результат генерации букета */
- .bouquet-result {
-     background: linear-gradient(135deg, #fff9f9 0%, #fff0f5 100%);
-     border-radius: var(--radius);
-     padding: 25px;
-     margin-top: 20px;
-     border: 2px solid #ffebee;
-     animation: slideIn 0.5s ease;
- }
+/* Сообщение с букетом */
+.bouquet-message .bouquet-result {
+    text-align: center;
+    padding: 15px;
+}
 
- @keyframes slideIn {
-     from {
-         opacity: 0;
-         transform: translateY(20px);
-     }
+.bouquet-message .bouquet-image-container {
+    max-width: 100%;
+    margin: 15px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+}
 
-     to {
-         opacity: 1;
-         transform: translateY(0);
-     }
- }
+.bouquet-message .bouquet-image {
+    width: 100%;
+    max-height: 400px; /* Добавляем ограничение высоты */
+    object-fit: contain; /* Изменяем с cover на contain */
+    display: block;
+    transition: transform 0.3s ease;
+}
 
- .result-header {
-     display: flex;
-     align-items: center;
-     gap: 15px;
-     margin-bottom: 20px;
- }
+.bouquet-message .bouquet-image:hover {
+    transform: scale(1.02);
+}
 
- .result-icon {
-     width: 50px;
-     height: 50px;
-     background: linear-gradient(135deg, var(--secondary) 0%, #ff8fa3 100%);
-     border-radius: 50%;
-     display: flex;
-     align-items: center;
-     justify-content: center;
-     font-size: 1.5rem;
-     color: white;
- }
+.bouquet-message .bouquet-caption {
+    color: #666;
+    font-style: italic;
+    margin: 10px 0;
+}
 
- .result-title {
-     font-size: 1.5rem;
-     color: var(--dark);
-     font-weight: 700;
- }
+.bouquet-message .order-bouquet-btn {
+    background: linear-gradient(135deg, #4deede 0%, #3e9bb7 100%);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 10px 0;
+}
 
- .bouquet-image-container {
-     width: 100%;
-     height: 300px;
-     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-     border-radius: 12px;
-     margin-bottom: 25px;
-     display: flex;
-     flex-direction: column;
-     align-items: center;
-     justify-content: center;
-     position: relative;
-     overflow: hidden;
- }
+.bouquet-message .order-bouquet-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
 
- .bouquet-image {
-     width: 100%;
-     height: 100%;
-     object-fit: cover;
-     display: none;
- }
+/* Основные стили для результата */
+.bouquet-result {
+    background: linear-gradient(135deg, #fff9f9 0%, #fff0f5 100%);
+    border-radius: var(--radius);
+    padding: 25px;
+    margin-top: 20px;
+    border: 2px solid #ffebee;
+    animation: slideIn 0.5s ease;
+    max-width: 100%;
+    overflow: hidden;
+}
 
- .image-placeholder {
-     text-align: center;
-     color: var(--gray);
- }
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
- .image-placeholder i {
-     font-size: 4rem;
-     color: var(--primary);
-     margin-bottom: 15px;
- }
+.result-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
 
- .generating-text {
-     margin-top: 15px;
-     font-size: 1.1rem;
-     color: var(--primary);
-     font-weight: 600;
- }
+.result-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--secondary) 0%, #ff8fa3 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+}
 
- .bouquet-description {
-     color: var(--dark);
-     line-height: 1.8;
-     font-size: 1.05rem;
-     margin-bottom: 25px;
-     font-style: italic;
-     padding: 20px;
-     background: white;
-     border-radius: 12px;
-     border-left: 4px solid var(--accent);
- }
+.result-title {
+    font-size: 1.5rem;
+    color: var(--dark);
+    font-weight: 700;
+}
 
- .bouquet-details {
-     display: grid;
-     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-     gap: 15px;
-     margin-bottom: 25px;
- }
+/* Исправленный контейнер для изображения */
+.bouquet-image-container {
+    width: 100%;
+    min-height: 300px; /* Меняем height на min-height */
+    max-height: 500px; /* Добавляем максимальную высоту */
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 12px;
+    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
 
- .detail-card {
-     background: white;
-     padding: 15px;
-     border-radius: 10px;
-     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
- }
+/* Исправленное изображение */
+.bouquet-image {
+    width: 100%;
+    height: auto; /* Меняем с 100% на auto */
+    max-height: 500px; /* Максимальная высота */
+    object-fit: contain; /* Меняем с cover на contain */
+    display: block; /* Меняем с none на block */
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
 
- .detail-card-title {
-     font-size: 0.9rem;
-     color: var(--gray);
-     margin-bottom: 5px;
- }
+/* Состояние при увеличении */
+.bouquet-image.expanded {
+    transform: scale(1.5);
+    z-index: 1000;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
 
- .detail-card-value {
-     font-size: 1rem;
-     color: var(--dark);
-     font-weight: 600;
- }
+.image-placeholder {
+    text-align: center;
+    color: var(--gray);
+}
 
- .action-buttons {
-     display: flex;
-     gap: 15px;
-     margin-top: 25px;
- }
+.image-placeholder i {
+    font-size: 4rem;
+    color: var(--primary);
+    margin-bottom: 15px;
+}
 
- .action-btn {
-     flex: 1;
-     padding: 16px 20px;
-     border-radius: var(--radius);
-     border: none;
-     font-weight: 600;
-     cursor: pointer;
-     transition: all 0.3s;
-     font-size: 1rem;
-     display: flex;
-     align-items: center;
-     justify-content: center;
-     gap: 10px;
- }
+.generating-text {
+    margin-top: 15px;
+    font-size: 1.1rem;
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.bouquet-description {
+    color: var(--dark);
+    line-height: 1.8;
+    font-size: 1.05rem;
+    margin-bottom: 25px;
+    font-style: italic;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    border-left: 4px solid var(--accent);
+}
+
+.bouquet-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.detail-card {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+.detail-card-title {
+    font-size: 0.9rem;
+    color: var(--gray);
+    margin-bottom: 5px;
+}
+
+.detail-card-value {
+    font-size: 1rem;
+    color: var(--dark);
+    font-weight: 600;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 25px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 16px 20px;
+    border-radius: var(--radius);
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
 
  .order-btn {
      background: linear-gradient(90deg, var(--secondary) 0%, #ff8fa3 100%);
@@ -738,54 +802,6 @@
 .test-status-indicator .status-info.failed {
     color: #e74c3c;
     border-left-color: #e74c3c;
-}
-
-/* Сообщение с букетом */
-.bouquet-message .bouquet-result {
-    text-align: center;
-    padding: 15px;
-}
-
-.bouquet-message .bouquet-image-container {
-    max-width: 100%;
-    margin: 15px 0;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-}
-
-.bouquet-message .bouquet-image {
-    width: 100%;
-    display: block;
-    transition: transform 0.3s ease;
-}
-
-.bouquet-message .bouquet-image:hover {
-    transform: scale(1.02);
-}
-
-.bouquet-message .bouquet-caption {
-    color: #666;
-    font-style: italic;
-    margin: 10px 0;
-}
-
-.bouquet-message .order-bouquet-btn {
-    background: linear-gradient(135deg, #4deede 0%, #3e9bb7 100%);
-    color: white;
-    border: none;
-    padding: 12px 30px;
-    border-radius: 25px;
-    font-size: 16px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin: 10px 0;
-}
-
-.bouquet-message .order-bouquet-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
 }
 
 /* Контейнер ссылки на тест */
