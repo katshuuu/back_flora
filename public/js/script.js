@@ -118,9 +118,6 @@ window.addEventListener('load', function() {
     
     // Очищаем sessionStorage если используется
     sessionStorage.clear();
-    
-    // Запускаем инициализацию чата
-    initChat();
 });
 
 // Функция для создания сессии на сервере
